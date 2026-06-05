@@ -1,0 +1,118 @@
+CONVERSOR PARA JPEG
+===================
+
+Feito por Jean, irma de Thalyta Marins backoffice
+Contato: jeanlago203@gmail.com
+
+
+PARA QUE SERVE?
+---------------
+Alguns arquivos baixados do sistema chegam sem extensao, com nome "arquivo".
+Por isso o Windows nao abre como imagem.
+
+Este programa converte esses arquivos para JPEG (.jpeg), prontos para abrir,
+enviar ou anexar.
+
+
+COMO INSTALAR (VERSAO EXECUTAVEL - RECOMENDADO)
+-----------------------------------------------
+1. Receba o arquivo: ConversorParaJPEG.zip
+2. Clique com o botao direito no ZIP > Extrair tudo
+3. De duplo clique em: ConversorParaJPEG.exe
+
+E um unico arquivo .exe, sem pasta _internal.
+
+NAO envie nem abra o .exe solto pelo WhatsApp.
+Sempre use o arquivo .zip.
+
+
+REQUISITOS DO COMPUTADOR
+------------------------
+- Windows 10 ou 11
+- Windows 64 bits (na maioria dos PCs modernos)
+
+Para verificar:
+  Configuracoes > Sistema > Sobre > Tipo de sistema
+  Deve aparecer: "Sistema operacional de 64 bits"
+
+Se aparecer "32 bits", avise a Jean. Esta versao nao funciona em 32 bits.
+
+
+COMO CONVERTER OS ARQUIVOS
+--------------------------
+1. Baixe os arquivos do sistema (normalmente vem como "arquivo", sem extensao)
+
+2. Coloque todos esses arquivos dentro de uma pasta
+   Exemplo: Downloads, ou uma pasta chamada "documentos baixados"
+
+3. Abra o conversor:
+   - Duplo clique em ConversorParaJPEG.exe
+
+4. Na janela que abrir:
+   - Escolha "Pasta inteira" ou "Arquivos escolhidos"
+   - Clique em "Escolher pasta" ou "Escolher arquivos"
+   - Clique em "Converter arquivos"
+
+5. Quando terminar:
+   - Clique em "Abrir pasta convertidos"
+   - Os JPEGs estarao la, prontos para usar
+
+
+ONDE FICAM OS ARQUIVOS CONVERTIDOS?
+-----------------------------------
+Dentro da pasta escolhida, sera criada uma subpasta chamada:
+
+   convertidos
+
+Exemplo:
+   Se voce escolheu C:\Users\Voce\Downloads
+   os JPEGs ficam em C:\Users\Voce\Downloads\convertidos
+
+
+PROBLEMAS COMUNS
+----------------
+
+Erro: "Esse aplicativo nao pode ser executado no seu PC"
+
+  Causa 1 - Arquivo corrompido ao enviar:
+    - Pecam novamente o arquivo ConversorParaJPEG.zip
+    - Extraiam de novo (nao use o .exe antigo)
+
+  Causa 2 - Windows 32 bits:
+    - Veja em Configuracoes > Sistema > Sobre
+    - Se for 32 bits, avise a Jean
+
+  Causa 3 - Bloqueio do Windows:
+    - Clique com botao direito em ConversorParaJPEG.exe
+    - Propriedades > marque "Desbloquear" (se existir) > OK
+    - Tente abrir de novo
+
+  Causa 4 - Antivirus:
+    - Alguns antivirus bloqueiam programas novos
+    - Adicione excecao para a pasta do conversor
+
+
+VERSAO ALTERNATIVA (COM PYTHON)
+-------------------------------
+Se o executavel nao funcionar no seu PC:
+
+1. Instale o Python em https://www.python.org/downloads/
+   (marque "Add Python to PATH" na instalacao)
+
+2. De duplo clique em instalar.bat
+
+3. De duplo clique em converter_para_jpeg.bat
+
+
+OBSERVACOES
+-----------
+- Na opcao "Pasta inteira", so entram arquivos sem extensao ou chamados "arquivo".
+  Outros arquivos da pasta (PDF, ZIP, fotos .png etc.) sao ignorados.
+- Se voce converter de novo o mesmo arquivo, ele nao sera duplicado.
+- Se houver varios arquivos chamados "arquivo", cada um vira um JPEG diferente.
+- Arquivos que ja sao .jpeg nao precisam ser convertidos de novo.
+
+
+DUVIDAS?
+--------
+Envie um e-mail para: jeanlago203@gmail.com
