@@ -1,0 +1,11 @@
+# Dados pessoais / arquivos de teste
+*.jpeg
+*.jpg
+convertidos/
+
+# Build e cache
+__pycache__/
+*.pyc
+build/
+dist/
+*.zip

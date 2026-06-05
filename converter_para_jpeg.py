@@ -9,6 +9,7 @@ import re
 import sys
 import threading
 import tkinter as tk
+from collections.abc import Callable
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -20,6 +21,20 @@ CREDITOS = "Jean, irmã de Thalyta Marins backoffice"
 EMAIL_CONTATO = "jeanlago203@gmail.com"
 TEXTO_CREDITOS = f"Feito por {CREDITOS}"
 TEXTO_CONTATO = f"Contato: {EMAIL_CONTATO}"
+
+COR_FUNDO = "#eef2ff"
+COR_CARTAO = "#ffffff"
+COR_BORDA = "#c7d2fe"
+COR_DESTAQUE = "#4f46e5"
+COR_DESTAQUE_ESCURO = "#4338ca"
+COR_CABECALHO = "#312e81"
+COR_CABECALHO_CLARO = "#4338ca"
+COR_TEXTO = "#1e1b4b"
+COR_TEXTO_SUAVE = "#64748b"
+COR_RODAPE = "#e0e7ff"
+COR_SUCESSO = "#059669"
+COR_ERRO = "#dc2626"
+COR_AVISO = "#d97706"
 ARQUIVOS_IGNORADOS = {
     "converter_para_jpeg.py",
     "converter_para_jpeg.bat",
@@ -307,83 +322,117 @@ def converter_arquivo(caminho: Path) -> tuple[Path | None, str | None, bool]:
         return None, explicar_erro_conversao(caminho, erro), False
 
 
-def converter_pasta(pasta: Path) -> tuple[int, list[str], Path | None]:
+def converter_pasta(
+    pasta: Path,
+    ao_linha: Callable[[str], None] | None = None,
+) -> tuple[int, list[str], Path | None]:
+    def emitir(linha: str) -> None:
+        mensagens.append(linha)
+        if ao_linha:
+            ao_linha(linha)
+
+    mensagens: list[str] = []
     if not pasta.is_dir():
-        return 0, mensagem_pasta_nao_encontrada(pasta), None
+        emitir("Erro: pasta não encontrada.")
+        for linha in mensagem_pasta_nao_encontrada(pasta)[1:]:
+            emitir(linha)
+        return 0, mensagens, None
 
     arquivos = sorted(p for p in pasta.iterdir() if deve_processar_pasta(p))
     if not arquivos:
-        return 0, mensagem_pasta_sem_elegiveis(pasta), None
+        for linha in mensagem_pasta_sem_elegiveis(pasta):
+            emitir(linha)
+        return 0, mensagens, None
 
-    mensagens: list[str] = [f"Convertendo {len(arquivos)} arquivo(s) elegível(is)...\n"]
+    emitir(f"Convertendo {len(arquivos)} arquivo(s) elegível(is)...")
+    emitir("")
     convertidos = 0
     ignorados = 0
     erros = 0
     pasta_saida = pasta / "convertidos"
 
-    for caminho in arquivos:
+    for indice, caminho in enumerate(arquivos, start=1):
+        if ao_linha:
+            ao_linha(f"⏳ Processando {indice}/{len(arquivos)}: {caminho.name}")
+
         destino, erro, ja_existia = converter_arquivo(caminho)
         if ja_existia and destino:
             ignorados += 1
-            mensagens.append(f"[==] {caminho.name}\n    {explicar_ja_convertido(caminho, destino)}")
+            emitir(f"[==] {caminho.name}")
+            emitir(f"    {explicar_ja_convertido(caminho, destino)}")
         elif destino:
             convertidos += 1
-            mensagens.append(f"[OK] {caminho.name}  ->  {destino.name}")
+            emitir(f"[OK] {caminho.name}  ->  {destino.name}")
         else:
             erros += 1
-            mensagens.append(f"[ERRO] {caminho.name}\n    {erro}")
+            emitir(f"[ERRO] {caminho.name}")
+            emitir(f"    {erro}")
 
-    mensagens.append(
-        f"\nResumo: {convertidos} convertido(s), {ignorados} já existente(s), {erros} com erro."
-    )
-    mensagens.append(f"Salvos em:\n{pasta_saida}")
+    emitir("")
+    emitir(f"Resumo: {convertidos} convertido(s), {ignorados} já existente(s), {erros} com erro.")
+    emitir(f"Salvos em:")
+    emitir(str(pasta_saida))
     return convertidos + ignorados, mensagens, pasta_saida if convertidos or ignorados else None
 
 
-def converter_lista(caminhos: list[Path]) -> tuple[int, list[str], Path | None]:
+def converter_lista(
+    caminhos: list[Path],
+    ao_linha: Callable[[str], None] | None = None,
+) -> tuple[int, list[str], Path | None]:
+    def emitir(linha: str) -> None:
+        mensagens.append(linha)
+        if ao_linha:
+            ao_linha(linha)
+
+    mensagens: list[str] = []
     arquivos = sorted({p.resolve() for p in caminhos if deve_processar_selecionado(p)})
     if not arquivos:
-        return 0, mensagem_selecao_sem_validos(caminhos), None
+        for linha in mensagem_selecao_sem_validos(caminhos):
+            emitir(linha)
+        return 0, mensagens, None
 
-    mensagens: list[str] = [f"Convertendo {len(arquivos)} arquivo(s) selecionado(s)...\n"]
+    emitir(f"Convertendo {len(arquivos)} arquivo(s) selecionado(s)...")
+    emitir("")
     convertidos = 0
     ignorados = 0
     erros = 0
     pastas_saida: set[Path] = set()
 
-    for caminho in arquivos:
+    for indice, caminho in enumerate(arquivos, start=1):
+        if ao_linha:
+            ao_linha(f"⏳ Processando {indice}/{len(arquivos)}: {caminho.name}")
+
         destino, erro, ja_existia = converter_arquivo(caminho)
         if ja_existia and destino:
             ignorados += 1
             pastas_saida.add(destino.parent)
-            mensagens.append(f"[==] {caminho.name}\n    {explicar_ja_convertido(caminho, destino)}")
+            emitir(f"[==] {caminho.name}")
+            emitir(f"    {explicar_ja_convertido(caminho, destino)}")
         elif destino:
             convertidos += 1
             pastas_saida.add(destino.parent)
-            mensagens.append(f"[OK] {caminho.name}  ->  {destino.name}")
+            emitir(f"[OK] {caminho.name}  ->  {destino.name}")
         else:
             erros += 1
-            mensagens.append(f"[ERRO] {caminho.name}\n    {erro}")
+            emitir(f"[ERRO] {caminho.name}")
+            emitir(f"    {erro}")
 
     if convertidos == 0 and ignorados == 0:
-        mensagens.append(
-            "\nNenhum arquivo foi convertido porque todos falharam ou foram rejeitados."
-        )
+        emitir("")
+        emitir("Nenhum arquivo foi convertido porque todos falharam ou foram rejeitados.")
         return 0, mensagens, None
 
+    emitir("")
+    emitir(f"Resumo: {convertidos} convertido(s), {ignorados} já existente(s), {erros} com erro.")
     if len(pastas_saida) == 1:
         pasta_saida = pastas_saida.pop()
-        mensagens.append(
-            f"\nResumo: {convertidos} convertido(s), {ignorados} já existente(s), {erros} com erro."
-        )
-        mensagens.append(f"Salvos em:\n{pasta_saida}")
+        emitir("Salvos em:")
+        emitir(str(pasta_saida))
     else:
         pasta_saida = next(iter(pastas_saida))
-        destinos = "\n".join(f"- {pasta}" for pasta in sorted(pastas_saida))
-        mensagens.append(
-            f"\nResumo: {convertidos} convertido(s), {ignorados} já existente(s), {erros} com erro."
-        )
-        mensagens.append(f"Pastas convertidos:\n{destinos}")
+        emitir("Pastas convertidos:")
+        for pasta in sorted(pastas_saida):
+            emitir(f"- {pasta}")
 
     return convertidos + ignorados, mensagens, pasta_saida
 
@@ -392,16 +441,177 @@ class ConversorApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Conversor para JPEG")
-        self.geometry("680x640")
-        self.minsize(520, 420)
-        self.configure(bg="#f5f5f5")
+        self.minsize(540, 440)
 
         self.pasta_var = tk.StringVar(value="")
         self.modo_var = tk.StringVar(value="pasta")
         self.arquivos_selecionados: list[Path] = []
         self.ultima_pasta_saida: Path | None = None
+        self.instrucoes_abertas = True
 
+        self._configurar_tema()
         self._montar_interface()
+        self._centralizar_janela()
+        self.bind("<Return>", lambda _e: self.iniciar_conversao())
+
+    def _configurar_tema(self) -> None:
+        self.configure(bg=COR_FUNDO)
+        estilo = ttk.Style(self)
+        estilo.theme_use("clam")
+        estilo.configure(
+            "Card.TButton",
+            font=("Segoe UI", 10),
+            padding=(12, 7),
+            background=COR_CARTAO,
+            foreground=COR_TEXTO,
+            borderwidth=1,
+        )
+        estilo.map(
+            "Card.TButton",
+            background=[("active", COR_FUNDO), ("disabled", "#f1f5f9")],
+            foreground=[("disabled", "#94a3b8")],
+        )
+        estilo.configure(
+            "Card.TRadiobutton",
+            font=("Segoe UI", 10),
+            background=COR_CARTAO,
+            foreground=COR_TEXTO,
+        )
+        estilo.map(
+            "Card.TRadiobutton",
+            background=[("active", COR_CARTAO), ("selected", COR_CARTAO)],
+        )
+        estilo.configure("Vertical.TScrollbar", background=COR_BORDA, troughcolor=COR_FUNDO)
+        estilo.configure(
+            "Accent.Horizontal.TProgressbar",
+            troughcolor="#e0e7ff",
+            background=COR_DESTAQUE,
+            thickness=8,
+        )
+
+    def _centralizar_janela(self) -> None:
+        self.update_idletasks()
+        largura = 720
+        altura = 720
+        pos_x = max(0, (self.winfo_screenwidth() - largura) // 2)
+        pos_y = max(0, (self.winfo_screenheight() - altura) // 2)
+        self.geometry(f"{largura}x{altura}+{pos_x}+{pos_y}")
+
+    def _atualizar_status(self, texto: str, cor: str = COR_TEXTO_SUAVE) -> None:
+        self.status_var.set(texto)
+        self.status_dot.configure(fg=cor)
+
+    def _atualizar_badge(self) -> None:
+        if self.modo_var.get() == "arquivos" and self.arquivos_selecionados:
+            total = len(self.arquivos_selecionados)
+            texto = f"  {total} arquivo(s) selecionado(s)  "
+            self.badge_selecao.configure(text=texto)
+            self.badge_selecao.pack(anchor="w", pady=(0, 10))
+            self._atualizar_status(f"{total} arquivo(s) prontos para converter", COR_DESTAQUE)
+            return
+
+        if self.modo_var.get() == "pasta":
+            pasta = self.pasta_var.get().strip()
+            if pasta and not pasta.startswith("(") and Path(pasta).is_dir():
+                self.badge_selecao.configure(text="  Pasta selecionada  ")
+                self.badge_selecao.pack(anchor="w", pady=(0, 10))
+                self._atualizar_status("Pasta selecionada. Clique em converter.", COR_DESTAQUE)
+                return
+
+        self.badge_selecao.pack_forget()
+        self._atualizar_status("Pronto para converter")
+
+    def _alternar_instrucoes(self) -> None:
+        if self.instrucoes_abertas:
+            self.frame_instrucoes_conteudo.pack_forget()
+            self.btn_toggle_instrucoes.configure(text="▶  Mostrar instruções")
+            self.instrucoes_abertas = False
+        else:
+            self.frame_instrucoes_conteudo.pack(fill="x")
+            self.btn_toggle_instrucoes.configure(text="▼  Ocultar instruções")
+            self.instrucoes_abertas = True
+
+    def _iniciar_progresso(self) -> None:
+        self.progress.pack(fill="x", pady=(12, 0))
+        self.progress.start(10)
+        self._atualizar_status("Convertendo arquivos...", COR_DESTAQUE)
+
+    def _parar_progresso(self) -> None:
+        self.progress.stop()
+        self.progress.pack_forget()
+
+    def _set_busy(self, ocupado: bool) -> None:
+        if ocupado:
+            self.btn_converter.configure(state="disabled", bg="#a5b4fc")
+            self.btn_abrir.configure(state="disabled")
+            self.btn_pasta.configure(state="disabled")
+            self.btn_arquivos.configure(state="disabled")
+            return
+
+        self.btn_converter.configure(state="normal", bg=COR_DESTAQUE)
+        self.btn_pasta.configure(state="normal" if self.modo_var.get() == "pasta" else "disabled")
+        self.btn_arquivos.configure(state="normal" if self.modo_var.get() == "arquivos" else "disabled")
+
+    def _limpar_log(self) -> None:
+        self.log.configure(state="normal")
+        self.log.delete("1.0", "end")
+        self.log.configure(state="disabled")
+
+    def _append_log_linha(self, linha: str) -> None:
+        self.log.configure(state="normal")
+        self.log.insert("end", linha + "\n", self._tag_log_linha(linha))
+        self.log.see("end")
+        self.log.configure(state="disabled")
+
+    def _criar_secao(self, parent: tk.Misc, titulo: str, emoji: str = "") -> tk.Frame:
+        bloco = tk.Frame(parent, bg=COR_FUNDO)
+        bloco.pack(fill="x", pady=(0, 14))
+
+        rotulo = f"{emoji}  {titulo}" if emoji else titulo
+        tk.Label(
+            bloco,
+            text=rotulo,
+            font=("Segoe UI", 10, "bold"),
+            bg=COR_FUNDO,
+            fg=COR_DESTAQUE,
+        ).pack(anchor="w", pady=(0, 6))
+
+        cartao = tk.Frame(
+            bloco,
+            bg=COR_CARTAO,
+            highlightbackground=COR_BORDA,
+            highlightthickness=1,
+            padx=14,
+            pady=12,
+        )
+        cartao.pack(fill="x")
+        return cartao
+
+    def _criar_botao_primario(self, parent: tk.Misc, texto: str, comando) -> tk.Button:
+        botao = tk.Button(
+            parent,
+            text=texto,
+            command=comando,
+            font=("Segoe UI", 11, "bold"),
+            bg=COR_DESTAQUE,
+            fg="white",
+            activebackground=COR_DESTAQUE_ESCURO,
+            activeforeground="white",
+            relief="flat",
+            bd=0,
+            padx=18,
+            pady=10,
+            cursor="hand2",
+        )
+        botao.bind("<Enter>", lambda _e: botao.configure(bg=COR_DESTAQUE_ESCURO))
+        botao.bind(
+            "<Leave>",
+            lambda _e: botao.configure(bg="#a5b4fc" if str(botao["state"]) == "disabled" else COR_DESTAQUE),
+        )
+        return botao
+
+    def _criar_botao_secundario(self, parent: tk.Misc, texto: str, comando) -> ttk.Button:
+        return ttk.Button(parent, text=texto, command=comando, style="Card.TButton")
 
     def _configurar_scroll(self, canvas: tk.Canvas, container: tk.Frame) -> None:
         janela = canvas.create_window((0, 0), window=container, anchor="nw")
@@ -427,115 +637,158 @@ class ConversorApp(tk.Tk):
             self._bind_scroll_pagina(filho, canvas, ignorar)
 
     def _montar_interface(self) -> None:
-        rodape = tk.Frame(self, bg="#e8e8e8", padx=16, pady=8)
+        cabecalho = tk.Frame(self, bg=COR_CABECALHO, padx=24, pady=20)
+        cabecalho.pack(side="top", fill="x")
+
+        tk.Label(
+            cabecalho,
+            text="🖼️  Conversor para JPEG",
+            font=("Segoe UI", 20, "bold"),
+            bg=COR_CABECALHO,
+            fg="white",
+        ).pack(anchor="w")
+
+        tk.Label(
+            cabecalho,
+            text="Transforme arquivos baixados em imagens prontas para abrir",
+            font=("Segoe UI", 10),
+            bg=COR_CABECALHO,
+            fg="#c7d2fe",
+        ).pack(anchor="w", pady=(4, 0))
+
+        tk.Frame(self, bg=COR_DESTAQUE, height=3).pack(side="top", fill="x")
+
+        status_bar = tk.Frame(self, bg=COR_CARTAO, padx=16, pady=8, highlightbackground=COR_BORDA, highlightthickness=1)
+        status_bar.pack(side="bottom", fill="x")
+
+        status_inner = tk.Frame(status_bar, bg=COR_CARTAO)
+        status_inner.pack(fill="x")
+
+        self.status_dot = tk.Label(status_inner, text="●", font=("Segoe UI", 11), bg=COR_CARTAO, fg=COR_SUCESSO)
+        self.status_dot.pack(side="left")
+
+        self.status_var = tk.StringVar(value="Pronto para converter")
+        tk.Label(
+            status_inner,
+            textvariable=self.status_var,
+            font=("Segoe UI", 10),
+            bg=COR_CARTAO,
+            fg=COR_TEXTO,
+        ).pack(side="left", padx=(6, 0))
+
+        rodape = tk.Frame(self, bg=COR_RODAPE, padx=16, pady=10)
         rodape.pack(side="bottom", fill="x")
 
         tk.Label(
             rodape,
             text=TEXTO_CREDITOS,
             font=("Segoe UI", 9),
-            bg="#e8e8e8",
-            fg="#555555",
+            bg=COR_RODAPE,
+            fg=COR_TEXTO_SUAVE,
         ).pack(anchor="center")
 
-        tk.Label(
+        email_label = tk.Label(
             rodape,
             text=TEXTO_CONTATO,
-            font=("Segoe UI", 9),
-            bg="#e8e8e8",
-            fg="#555555",
-        ).pack(anchor="center", pady=(2, 0))
+            font=("Segoe UI", 9, "underline"),
+            bg=COR_RODAPE,
+            fg=COR_DESTAQUE,
+            cursor="hand2",
+        )
+        email_label.pack(anchor="center", pady=(2, 0))
+        email_label.bind("<Button-1>", lambda _e: os.startfile(f"mailto:{EMAIL_CONTATO}"))
 
-        scroll_outer = tk.Frame(self, bg="#f5f5f5")
+        scroll_outer = tk.Frame(self, bg=COR_FUNDO)
         scroll_outer.pack(fill="both", expand=True)
 
-        scrollbar = ttk.Scrollbar(scroll_outer, orient="vertical")
+        scrollbar = ttk.Scrollbar(scroll_outer, orient="vertical", style="Vertical.TScrollbar")
         scrollbar.pack(side="right", fill="y")
 
         canvas = tk.Canvas(
             scroll_outer,
-            bg="#f5f5f5",
+            bg=COR_FUNDO,
             highlightthickness=0,
             yscrollcommand=scrollbar.set,
         )
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.config(command=canvas.yview)
 
-        container = tk.Frame(canvas, bg="#f5f5f5", padx=24, pady=20)
+        container = tk.Frame(canvas, bg=COR_FUNDO, padx=24, pady=16)
         self._configurar_scroll(canvas, container)
 
-        titulo = tk.Label(
-            container,
-            text="Conversor para JPEG",
-            font=("Segoe UI", 18, "bold"),
-            bg="#f5f5f5",
-            fg="#222222",
+        secao_instrucoes = self._criar_secao(container, "Instruções", "📋")
+        self.btn_toggle_instrucoes = tk.Button(
+            secao_instrucoes,
+            text="▼  Ocultar instruções",
+            command=self._alternar_instrucoes,
+            font=("Segoe UI", 9),
+            bg="#ede9fe",
+            fg=COR_DESTAQUE,
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=4,
+            cursor="hand2",
         )
-        titulo.pack(anchor="w")
+        self.btn_toggle_instrucoes.pack(anchor="w", pady=(0, 8))
 
-        instrucoes_frame = tk.LabelFrame(
-            container,
-            text=" Instruções ",
-            font=("Segoe UI", 10, "bold"),
-            bg="#f5f5f5",
-            fg="#333333",
-            padx=12,
-            pady=10,
-        )
-        instrucoes_frame.pack(fill="x", pady=(8, 16))
+        self.frame_instrucoes_conteudo = tk.Frame(secao_instrucoes, bg=COR_CARTAO)
+        self.frame_instrucoes_conteudo.pack(fill="x")
 
-        instrucoes = tk.Label(
-            instrucoes_frame,
+        tk.Label(
+            self.frame_instrucoes_conteudo,
             text=INSTRUCOES,
             font=("Segoe UI", 10),
-            bg="#f5f5f5",
-            fg="#444444",
+            bg=COR_CARTAO,
+            fg=COR_TEXTO_SUAVE,
             justify="left",
             anchor="w",
-        )
-        instrucoes.pack(anchor="w")
+        ).pack(anchor="w")
 
-        modo_frame = tk.LabelFrame(
-            container,
-            text=" O que converter? ",
-            font=("Segoe UI", 10, "bold"),
-            bg="#f5f5f5",
-            fg="#333333",
-            padx=12,
-            pady=10,
-        )
-        modo_frame.pack(fill="x", pady=(0, 12))
-
-        opcoes = tk.Frame(modo_frame, bg="#f5f5f5")
+        secao_modo = self._criar_secao(container, "O que converter?", "🎯")
+        opcoes = tk.Frame(secao_modo, bg=COR_CARTAO)
         opcoes.pack(anchor="w", fill="x")
 
         ttk.Radiobutton(
             opcoes,
-            text="Pasta inteira",
+            text="📁  Pasta inteira",
             value="pasta",
             variable=self.modo_var,
             command=self.atualizar_modo,
-        ).pack(side="left", padx=(0, 20))
+            style="Card.TRadiobutton",
+        ).pack(side="left", padx=(0, 24))
 
         ttk.Radiobutton(
             opcoes,
-            text="Arquivos escolhidos (um ou vários)",
+            text="📄  Arquivos escolhidos (um ou vários)",
             value="arquivos",
             variable=self.modo_var,
             command=self.atualizar_modo,
+            style="Card.TRadiobutton",
         ).pack(side="left")
 
+        secao_selecao = self._criar_secao(container, "Seleção", "📂")
         self.selecao_label = tk.Label(
-            container,
-            text="Passo 2: escolha a pasta com os arquivos baixados",
-            font=("Segoe UI", 10, "bold"),
-            bg="#f5f5f5",
-            fg="#333333",
+            secao_selecao,
+            text="Escolha a pasta com os arquivos baixados",
+            font=("Segoe UI", 10),
+            bg=COR_CARTAO,
+            fg=COR_TEXTO_SUAVE,
         )
-        self.selecao_label.pack(anchor="w", pady=(0, 8))
+        self.selecao_label.pack(anchor="w", pady=(0, 6))
 
-        pasta_frame = tk.Frame(container, bg="#f5f5f5")
-        pasta_frame.pack(fill="x", pady=(0, 12))
+        self.badge_selecao = tk.Label(
+            secao_selecao,
+            text="",
+            font=("Segoe UI", 9, "bold"),
+            bg="#ede9fe",
+            fg=COR_DESTAQUE,
+            padx=10,
+            pady=4,
+        )
+
+        pasta_frame = tk.Frame(secao_selecao, bg=COR_CARTAO)
+        pasta_frame.pack(fill="x")
 
         entrada = tk.Entry(
             pasta_frame,
@@ -543,67 +796,75 @@ class ConversorApp(tk.Tk):
             font=("Segoe UI", 10),
             relief="solid",
             bd=1,
+            bg="#f8fafc",
+            fg=COR_TEXTO,
+            highlightthickness=1,
+            highlightbackground=COR_BORDA,
+            highlightcolor=COR_DESTAQUE,
         )
-        entrada.pack(side="left", fill="x", expand=True, ipady=6)
+        entrada.pack(side="left", fill="x", expand=True, ipady=7)
 
-        self.btn_pasta = ttk.Button(pasta_frame, text="Escolher pasta", command=self.escolher_pasta)
+        self.btn_pasta = self._criar_botao_secundario(pasta_frame, "Escolher pasta", self.escolher_pasta)
         self.btn_pasta.pack(side="left", padx=(10, 0))
 
-        self.btn_arquivos = ttk.Button(
-            pasta_frame,
-            text="Escolher arquivos...",
-            command=self.escolher_arquivos,
-            state="disabled",
+        self.btn_arquivos = self._criar_botao_secundario(
+            pasta_frame, "Escolher arquivos...", self.escolher_arquivos
         )
+        self.btn_arquivos.configure(state="disabled")
         self.btn_arquivos.pack(side="left", padx=(10, 0))
 
-        botoes = tk.Frame(container, bg="#f5f5f5")
-        botoes.pack(fill="x", pady=(0, 16))
+        secao_acoes = self._criar_secao(container, "Ações", "⚡")
+        botoes = tk.Frame(secao_acoes, bg=COR_CARTAO)
+        botoes.pack(fill="x")
 
-        self.btn_converter = ttk.Button(
-            botoes,
-            text="Converter arquivos",
-            command=self.iniciar_conversao,
+        self.btn_converter = self._criar_botao_primario(
+            botoes, "✨  Converter arquivos", self.iniciar_conversao
         )
         self.btn_converter.pack(side="left")
 
-        self.btn_abrir = ttk.Button(
-            botoes,
-            text="Abrir pasta convertidos",
-            command=self.abrir_pasta_convertidos,
-            state="disabled",
+        self.btn_abrir = self._criar_botao_secundario(
+            botoes, "📂  Abrir pasta convertidos", self.abrir_pasta_convertidos
         )
-        self.btn_abrir.pack(side="left", padx=(10, 0))
+        self.btn_abrir.configure(state="disabled")
+        self.btn_abrir.pack(side="left", padx=(12, 0))
 
-        log_label = tk.Label(
-            container,
-            text="Resultado",
-            font=("Segoe UI", 10, "bold"),
-            bg="#f5f5f5",
-            fg="#333333",
+        self.progress = ttk.Progressbar(
+            secao_acoes,
+            mode="indeterminate",
+            style="Accent.Horizontal.TProgressbar",
         )
-        log_label.pack(anchor="w")
 
-        log_frame = tk.Frame(container, bg="#f5f5f5")
-        log_frame.pack(fill="both", expand=True, pady=(6, 0))
+        secao_resultado = self._criar_secao(container, "Resultado", "📊")
+        log_frame = tk.Frame(secao_resultado, bg=COR_CARTAO)
+        log_frame.pack(fill="both", expand=True)
 
-        log_scroll = ttk.Scrollbar(log_frame, orient="vertical")
+        log_scroll = ttk.Scrollbar(log_frame, orient="vertical", style="Vertical.TScrollbar")
         log_scroll.pack(side="right", fill="y")
 
         self.log = tk.Text(
             log_frame,
             height=10,
             font=("Consolas", 10),
-            relief="solid",
-            bd=1,
+            relief="flat",
+            bd=0,
             wrap="word",
-            bg="#ffffff",
-            fg="#222222",
+            bg="#f8fafc",
+            fg=COR_TEXTO,
             yscrollcommand=log_scroll.set,
+            padx=8,
+            pady=8,
         )
         self.log.pack(side="left", fill="both", expand=True)
         log_scroll.config(command=self.log.yview)
-        self.log.insert("1.0", "Aguardando conversão...\n")
+
+        self.log.tag_configure("ok", foreground=COR_SUCESSO)
+        self.log.tag_configure("erro", foreground=COR_ERRO)
+        self.log.tag_configure("dup", foreground=COR_AVISO)
+        self.log.tag_configure("detalhe", foreground=COR_TEXTO_SUAVE)
+        self.log.tag_configure("titulo", foreground=COR_DESTAQUE, font=("Consolas", 10, "bold"))
+        self.log.tag_configure("progresso", foreground=COR_DESTAQUE, font=("Consolas", 10, "italic"))
+
+        self.log.insert("1.0", "Aguardando conversão...\n", "detalhe")
         self.log.configure(state="disabled")
 
         self.log.bind(
@@ -614,40 +875,47 @@ class ConversorApp(tk.Tk):
 
     def atualizar_modo(self) -> None:
         if self.modo_var.get() == "pasta":
-            self.selecao_label.configure(text="Passo 2: escolha a pasta com os arquivos baixados")
+            self.selecao_label.configure(text="Escolha a pasta com os arquivos baixados")
             self.btn_pasta.configure(state="normal")
             self.btn_arquivos.configure(state="disabled")
             if not self.pasta_var.get().startswith("("):
+                self._atualizar_badge()
                 return
             self.pasta_var.set("")
             self.arquivos_selecionados.clear()
         else:
             self.selecao_label.configure(
-                text="Passo 2: escolha um ou vários arquivos (use Ctrl+clique para marcar vários)"
+                text="Escolha um ou vários arquivos (Ctrl+clique para marcar vários)"
             )
             self.btn_pasta.configure(state="disabled")
             self.btn_arquivos.configure(state="normal")
             self.resumir_arquivos_selecionados()
 
+        self._atualizar_badge()
+
     def resumir_arquivos_selecionados(self) -> None:
         if not self.arquivos_selecionados:
             self.pasta_var.set("Nenhum arquivo selecionado")
+            self._atualizar_badge()
             return
 
         if len(self.arquivos_selecionados) == 1:
             self.pasta_var.set(str(self.arquivos_selecionados[0]))
+            self._atualizar_badge()
             return
 
         nomes = ", ".join(arquivo.name for arquivo in self.arquivos_selecionados[:3])
         if len(self.arquivos_selecionados) > 3:
             nomes += ", ..."
         self.pasta_var.set(f"({len(self.arquivos_selecionados)} arquivos) {nomes}")
+        self._atualizar_badge()
 
     def escolher_pasta(self) -> None:
         pasta = filedialog.askdirectory(title="Escolha a pasta com os arquivos")
         if pasta:
             self.pasta_var.set(pasta)
             self.arquivos_selecionados.clear()
+            self._atualizar_badge()
 
     def escolher_arquivos(self) -> None:
         selecionados = filedialog.askopenfilenames(
@@ -661,10 +929,26 @@ class ConversorApp(tk.Tk):
             self.arquivos_selecionados = [Path(caminho) for caminho in selecionados]
             self.resumir_arquivos_selecionados()
 
+    def _tag_log_linha(self, linha: str) -> str:
+        if linha.startswith("⏳"):
+            return "progresso"
+        if linha.startswith("[OK]"):
+            return "ok"
+        if linha.startswith("[ERRO]"):
+            return "erro"
+        if linha.startswith("[==]"):
+            return "dup"
+        if linha.startswith("Resumo:") or linha.startswith("Convertendo"):
+            return "titulo"
+        if linha.startswith("Motivo:") or linha.startswith("    ") or linha.startswith("- "):
+            return "detalhe"
+        return "normal"
+
     def escrever_log(self, texto: str) -> None:
         self.log.configure(state="normal")
         self.log.delete("1.0", "end")
-        self.log.insert("1.0", texto)
+        for linha in texto.splitlines():
+            self.log.insert("end", linha + "\n", self._tag_log_linha(linha))
         self.log.configure(state="disabled")
 
     def abrir_pasta_convertidos(self) -> None:
@@ -724,9 +1008,9 @@ class ConversorApp(tk.Tk):
                 )
                 return
 
-        self.btn_converter.configure(state="disabled")
-        self.btn_abrir.configure(state="disabled")
-        self.escrever_log("Convertendo, aguarde...\n")
+        self._set_busy(True)
+        self._limpar_log()
+        self._iniciar_progresso()
 
         if self.modo_var.get() == "arquivos":
             arquivos = list(self.arquivos_selecionados)
@@ -735,29 +1019,33 @@ class ConversorApp(tk.Tk):
             pasta = Path(self.pasta_var.get().strip())
             threading.Thread(target=self._executar_conversao_pasta, args=(pasta,), daemon=True).start()
 
+    def _ao_linha_log(self, linha: str) -> None:
+        if linha.startswith("⏳"):
+            self._atualizar_status(linha, COR_DESTAQUE)
+        self._append_log_linha(linha)
+
     def _finalizar_conversao(self, convertidos: int, mensagens: list[str], pasta_saida: Path | None) -> None:
-        texto = "\n".join(mensagens)
-        self.escrever_log(texto)
-        self.btn_converter.configure(state="normal")
+        self._parar_progresso()
+        self._set_busy(False)
+        self.escrever_log("\n".join(mensagens))
         if convertidos > 0 and pasta_saida:
             self.ultima_pasta_saida = pasta_saida
             self.btn_abrir.configure(state="normal")
-            messagebox.showinfo(
-                "Conversão finalizada",
-                "A conversão terminou.\n\n"
-                "Veja o campo \"Resultado\" abaixo para saber o que foi convertido, "
-                "o que já existia e o que deu erro.",
-            )
+            self._atualizar_status("Conversão finalizada com sucesso!", COR_SUCESSO)
         elif convertidos == 0:
+            self._atualizar_status("Nenhum arquivo foi convertido.", COR_ERRO)
             messagebox.showwarning("Nada foi convertido", resumo_final_vazio(mensagens))
 
     def _executar_conversao_pasta(self, pasta: Path) -> None:
-        convertidos, mensagens, pasta_saida = converter_pasta(pasta)
+        convertidos, mensagens, pasta_saida = converter_pasta(pasta, ao_linha=self._ao_linha_log_thread)
         self.after(0, lambda: self._finalizar_conversao(convertidos, mensagens, pasta_saida))
 
     def _executar_conversao_arquivos(self, arquivos: list[Path]) -> None:
-        convertidos, mensagens, pasta_saida = converter_lista(arquivos)
+        convertidos, mensagens, pasta_saida = converter_lista(arquivos, ao_linha=self._ao_linha_log_thread)
         self.after(0, lambda: self._finalizar_conversao(convertidos, mensagens, pasta_saida))
+
+    def _ao_linha_log_thread(self, linha: str) -> None:
+        self.after(0, lambda l=linha: self._ao_linha_log(l))
 
 
 def main_cli() -> int:
